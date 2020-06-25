@@ -19,3 +19,4 @@ doc
 .project
 .pydevproject
 _ext
+python-sdk/*.egg-info
