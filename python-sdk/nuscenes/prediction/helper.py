@@ -424,7 +424,6 @@ def acceleration(current: Dict[str, Any], prev: Dict[str, Any],
         # the acceleration as 0.0 instead of np.nan. Sometimes
         # the previous velocity isn't available, because the
         # agent's position 2 steps previous isn't available.
-        print("Acceleration forced to 0.0")
         return 0.0
 
     return (current_velocity - prev_velocity) / time_diff
