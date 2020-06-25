@@ -17,6 +17,7 @@ import os
 np.random.seed(0)
 torch.manual_seed(0)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+RUN_TIME = datetime.datetime.now()
 
 ## HYPERPARAMETERS ##
 
@@ -24,16 +25,15 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 NUM_MODES = 1
 EXPERIMENT_DIR = '/home/jupyter/experiments/01'
 KEY = 'mtp'
-RUN_TIME = datetime.datetime.now()
 PRINT_EVERY_BATCHES = 50
 
 # data hyperparams
-VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
-DATA_ROOT = 'home/jupyter/data/sets/nuscenes'  # wherever the data is stored
-TRAIN_SPLIT_NAME = 'train'  # 'mini_train', 'mini_val', 'train', 'train_val', 'val'
-VAL_SPLIT_NAME = 'train_val'
 TRAIN_DOWNSAMPLE_FACTOR = 2
 VAL_DOWNSAMPLE_FACTOR = 1
+VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
+DATA_ROOT = '/home/jupyter/data/sets/nuscenes'  # wherever the data is stored
+TRAIN_SPLIT_NAME = 'train'  # 'mini_train', 'mini_val', 'train', 'train_val', 'val'
+VAL_SPLIT_NAME = 'train_val'
 
 ## PREPARE DATA ##
 
@@ -172,7 +172,7 @@ def train_epochs(key,
                  val_dataloader,
                  previously_completed_epochs=0,
                  load_weights_path=None,
-                 oad_optimizer_path=None):
+                 load_optimizer_path=None):
     """
     Run several epochs of training and evaluation for a model, optionally
     loading weights.
