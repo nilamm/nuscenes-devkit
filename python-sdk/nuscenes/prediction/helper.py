@@ -418,5 +418,13 @@ def acceleration(current: Dict[str, Any], prev: Dict[str, Any],
     """
     current_velocity = helper.get_velocity_for_agent(instance_token_for_velocity, current['sample_token'])
     prev_velocity = helper.get_velocity_for_agent(instance_token_for_velocity, prev['sample_token'])
+    
+    if np.isnan(prev_velocity):
+        # If we don't have the previous velocity, then return
+        # the acceleration as 0.0 instead of np.nan. Sometimes
+        # the previous velocity isn't available, because the
+        # agent's position 2 steps previous isn't available.
+        print("Acceleration forced to 0.0")
+        return 0.0
 
     return (current_velocity - prev_velocity) / time_diff
