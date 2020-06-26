@@ -30,7 +30,7 @@ N_STEPS = 12  # 12 = 6 seconds * 2 frames/seconds
 # data hyperparams
 VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
 DATA_ROOT = '/home/jupyter/data/sets/nuscenes'  # wherever the data is stored
-SPLIT_NAME = 'train_val'
+SPLIT_NAME = 'val'
 OUTPUT_DIR = '.'
 
 ## PREPARE DATA ##
