@@ -67,7 +67,7 @@ train_mtpdataloader = DataLoader(train_mtpdataset, batch_size=16, num_workers=0,
 
 val_mtpdataset = MTPDataset(val_tokens, helper)
 val_mtpdataloader = DataLoader(val_mtpdataset, batch_size=16, num_workers=0, shuffle=False)
-import pdb; pdb.set_trace()
+
 # prepare output directories
 if not os.path.exists(EXPERIMENT_DIR):
     os.mkdir(EXPERIMENT_DIR)
@@ -202,8 +202,8 @@ def train_epochs(key,
     # prepare for storing results
     all_train_results = {}
     all_validation_results = {}
-    train_results_fname = f'val_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
-    val_results_fname = f'trai_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
+    train_results_fname = f'tain_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
+    val_results_fname = f'val_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
     
     # optionally load model weights
     if load_weights_path:
