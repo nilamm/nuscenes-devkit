@@ -23,7 +23,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # inference hyperparams
 EXPERIMENT_DIR = '/home/jupyter/experiments/01'
-WEIGHTS = '...'
+WEIGHTS = None
 NUM_MODES = 2
 N_STEPS = 12  # 12 = 6 seconds * 2 frames/seconds
 
@@ -48,8 +48,10 @@ dataloader = DataLoader(dataset, batch_size=16, num_workers=1, shuffle=False)
 backbone = ResNetBackbone('resnet18')  # TODO: this could vary
 model = MTP(backbone, NUM_MODES)
 model = model.to(device)
-model.load_state_dict(
-    torch.load(os.path.join(EXPERIMENT_DIR, 'weights', WEIGHTS)))
+
+if WEIGHTS is not None:
+    model.load_state_dict(
+        torch.load(os.path.join(EXPERIMENT_DIR, 'weights', WEIGHTS)))
 
 model.eval()
 
