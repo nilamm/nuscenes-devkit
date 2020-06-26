@@ -31,7 +31,6 @@ N_STEPS = 12  # 12 = 6 seconds * 2 frames/seconds
 VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
 DATA_ROOT = '/home/jupyter/data/sets/nuscenes'  # wherever the data is stored
 SPLIT_NAME = 'val'
-OUTPUT_DIR = '.'
 
 ## PREPARE DATA ##
 
@@ -83,4 +82,4 @@ for img, agent_state_vector, instance_tokens, sample_tokens in dataloader:
 
 
 json.dump(all_predictions,
-          open(os.path.join(OUTPUT_DIR, f'mtp_preds_{datetime.datetime.now():%Y-%m-%d %Hh%Mm%Ss}.json'), "w"))
+          open(os.path.join(EXPERIMENT_DIR, f'mtp_preds_{datetime.datetime.now():%Y-%m-%d %Hh%Mm%Ss}.json'), "w"))
