@@ -55,7 +55,7 @@ if WEIGHTS is not None:
 model.eval()
 
 all_predictions = []
-for img, agent_state_vector, instance_tokens, sample_tokens in dataloader:
+for img, agent_state_vector, gt, instance_tokens, sample_tokens in dataloader:
     img = img.to(device).float()
     agent_state_vector = agent_state_vector.to(device).float()
 
