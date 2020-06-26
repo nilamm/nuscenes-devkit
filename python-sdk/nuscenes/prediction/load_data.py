@@ -51,4 +51,6 @@ class MTPDataset(Dataset):
 
         # For CoverNet: "batch_ground_truth_trajectory: Tensor of shape [batch_size, 1, n_timesteps, state_dim]"
 
-        return image_tensor, agent_state_vector, ground_truth.reshape((1,12,2))
+        return (image_tensor, agent_state_vector,
+                ground_truth.reshape((1, 12, 2)),
+                instance_token, sample_token)

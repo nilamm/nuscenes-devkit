@@ -130,7 +130,7 @@ def run_epoch(model, optimizer, dataloader, loss_function, epoch, phase):
 
     running_loss = 0.0
 
-    for i, (img, agent_state_vector, ground_truth) in enumerate(dataloader):
+    for i, (img, agent_state_vector, ground_truth, _, _) in enumerate(dataloader):
         if (i % PRINT_EVERY_BATCHES == 0) and (i > 0):
             print(f"Running loss after {i} batches: {(running_loss / i):4f}",
                   datetime.datetime.now())
