@@ -11,6 +11,15 @@ SECONDS_OF_HISTORY = 2
 SECONDS_TO_PREDICT = 6
 
 
+class CoverNetDataset(Dataset):
+    def __init__(self):
+        pass
+    def __len__(self):
+        pass
+    def __getitem__(self, idx):
+        # For CoverNet: "batch_ground_truth_trajectory: Tensor of shape [batch_size, 1, n_timesteps, state_dim]"
+        pass
+
 class MTPDataset(Dataset):
     def __init__(self,
                  instance_sample_tokens,
@@ -49,7 +58,6 @@ class MTPDataset(Dataset):
         # where n_timesteps = 2 * seconds predicted = 12
         ground_truth = self.helper.get_future_for_agent(instance_token, sample_token, seconds=SECONDS_TO_PREDICT, in_agent_frame=True)
 
-        # For CoverNet: "batch_ground_truth_trajectory: Tensor of shape [batch_size, 1, n_timesteps, state_dim]"
 
         return (image_tensor, agent_state_vector,
                 ground_truth.reshape((1, 12, 2)),

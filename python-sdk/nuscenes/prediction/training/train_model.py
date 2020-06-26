@@ -10,6 +10,7 @@ from nuscenes.prediction.models.backbone import ResNetBackbone
 from nuscenes.prediction.models.mtp import MTP, MTPLoss
 import torch.optim as optim
 from nuscenes.prediction.load_data import MTPDataset
+import json
 
 import datetime
 import os
@@ -23,13 +24,22 @@ RUN_TIME = datetime.datetime.now()
 
 # model hyperparams
 NUM_MODES = 1
-EXPERIMENT_DIR = '/home/jupyter/experiments/01'
+EXPERIMENT_DIR = '/home/jupyter/experiments/02'
 KEY = 'mtp'
 PRINT_EVERY_BATCHES = 50
 
+N_EPOCHS = 15 # how many (more) epochs to run
+PREVIOUSLY_COMPLETED_EPOCHS = 0  # Starting epoch (default: 0)
+
+# load weights from previous training,
+# from directory: EXPERIMENT_DIR/weights
+# (can be None)
+LOAD_WEIGHTS_PATH = None
+LOAD_OPTIMIZER_PATH = None
+
 # data hyperparams
-TRAIN_DOWNSAMPLE_FACTOR = 2
-VAL_DOWNSAMPLE_FACTOR = 1
+TRAIN_DOWNSAMPLE_FACTOR = 5
+VAL_DOWNSAMPLE_FACTOR = 5
 VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
 DATA_ROOT = '/home/jupyter/data/sets/nuscenes'  # wherever the data is stored
 TRAIN_SPLIT_NAME = 'train'  # 'mini_train', 'mini_val', 'train', 'train_val', 'val'
@@ -57,7 +67,7 @@ train_mtpdataloader = DataLoader(train_mtpdataset, batch_size=16, num_workers=0,
 
 val_mtpdataset = MTPDataset(val_tokens, helper)
 val_mtpdataloader = DataLoader(val_mtpdataset, batch_size=16, num_workers=0, shuffle=False)
-
+import pdb; pdb.set_trace()
 # prepare output directories
 if not os.path.exists(EXPERIMENT_DIR):
     os.mkdir(EXPERIMENT_DIR)
@@ -90,7 +100,7 @@ def store_weights(model, optimizer, epoch, key):
     weights_dir = os.path.join(EXPERIMENT_DIR, 'weights')
 
     new_weights_path = os.path.join(
-        weights_path,
+        weights_dir,
         f'{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}_{key}_weights after_epoch {epoch}.pt')
     torch.save(model.state_dict(), new_weights_path)
     print("Stored weights at", new_weights_path)
@@ -182,6 +192,7 @@ def train_epochs(key,
         total epochs)
     previously_completed_epochs: if continuing to train a model. Default: 0
     """
+    print()
 
     # load model
     model = get_model(key)
@@ -193,20 +204,20 @@ def train_epochs(key,
     all_validation_results = {}
     train_results_fname = f'val_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
     val_results_fname = f'trai_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
-
+    
     # optionally load model weights
     if load_weights_path:
         model.load_state_dict(
-            torch.load(os.path.join(weights_path, load_weights_path)))
+            torch.load(os.path.join(EXPERIMENT_DIR, 'weights', load_weights_path)))
         print("Loaded model weights from",
-              os.path.join(weights_path, load_weights_path))
+              os.path.join(EXPERIMENT_DIR, 'weights', load_weights_path))
 
     # optionally load optimizer weights
     if load_optimizer_path:
         optimizer.load_state_dict(
-            torch.load(os.path.join(weights_path, load_optimizer_path)))
+            torch.load(os.path.join(EXPERIMENT_DIR, 'weights', load_optimizer_path)))
         print("Loaded optimizer weights from",
-              os.path.join(weights_path, load_optimizer_path))
+              os.path.join(EXPERIMENT_DIR, 'weights', load_optimizer_path))
 
     for i in range(n_epochs):
         epoch = previously_completed_epochs + i
@@ -235,6 +246,10 @@ def train_epochs(key,
 ## RUN TRAINING ##
 
 train_epochs(key=KEY,
-             n_epochs=2,
+             n_epochs=N_EPOCHS,
+             previously_completed_epochs=PREVIOUSLY_COMPLETED_EPOCHS,
              train_dataloader=train_mtpdataloader,
-             val_dataloader=val_mtpdataloader)
+             val_dataloader=val_mtpdataloader,
+             load_weights_path=LOAD_WEIGHTS_PATH,
+             load_optimizer_path=LOAD_OPTIMIZER_PATH
+            )
