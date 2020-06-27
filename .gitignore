@@ -20,3 +20,4 @@ doc
 .pydevproject
 _ext
 python-sdk/*.egg-info
+simclr_model/

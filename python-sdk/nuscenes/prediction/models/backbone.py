@@ -109,7 +109,6 @@ def get_pretrained_model(model_key,
     if model_key in ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']:
         model = pretrainedmodels.__dict__[model_key](
             num_classes=1000, pretrained='imagenet')  # original
-        print(model)
         if freeze_bottom:
             freeze_bottom_resnet(model)
         return model

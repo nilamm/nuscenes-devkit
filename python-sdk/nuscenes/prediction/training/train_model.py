@@ -8,9 +8,12 @@ from nuscenes.eval.prediction.splits import get_prediction_challenge_split
 from torch.utils.data import DataLoader
 from nuscenes.prediction.models.backbone import Backbone
 from nuscenes.prediction.models.mtp import MTP, MTPLoss
+from nuscenes.prediction.models.covernet import CoverNet, ConstantLatticeLoss
 import torch.optim as optim
 from nuscenes.prediction.load_data import MTPDataset
+from nuscenes.prediction.load_data import CoverNetDataset
 import json
+import pickle
 
 import datetime
 import os
@@ -23,12 +26,12 @@ RUN_TIME = datetime.datetime.now()
 ## HYPERPARAMETERS ##
 
 # model hyperparams
-NUM_MODES = 1
-EXPERIMENT_DIR = '/home/jupyter/experiments/02'
-KEY = 'mtp'
+NUM_MODES = 64
+EXPERIMENT_DIR = '/home/jupyter/experiments/03'
+KEY = 'covernet'
 PRINT_EVERY_BATCHES = 50
 
-N_EPOCHS = 15 # how many (more) epochs to run
+N_EPOCHS = 9 # how many (more) epochs to run
 PREVIOUSLY_COMPLETED_EPOCHS = 0  # Starting epoch (default: 0)
 
 # load weights from previous training,
@@ -38,35 +41,13 @@ LOAD_WEIGHTS_PATH = None
 LOAD_OPTIMIZER_PATH = None
 
 # data hyperparams
-TRAIN_DOWNSAMPLE_FACTOR = 5
+TRAIN_DOWNSAMPLE_FACTOR = 5 
 VAL_DOWNSAMPLE_FACTOR = 5
 VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
 DATA_ROOT = '/home/jupyter/data/sets/nuscenes'  # wherever the data is stored
 TRAIN_SPLIT_NAME = 'train'  # 'mini_train', 'mini_val', 'train', 'train_val', 'val'
 VAL_SPLIT_NAME = 'train_val'
 
-## PREPARE DATA ##
-
-# load data
-nusc = NuScenes(version=VERSION, dataroot=DATA_ROOT)
-helper = PredictHelper(nusc)
-train_tokens = get_prediction_challenge_split(TRAIN_SPLIT_NAME, dataroot=DATA_ROOT)
-val_tokens = get_prediction_challenge_split(VAL_SPLIT_NAME, dataroot=DATA_ROOT)
-
-# apply downsampling
-train_tokens = np.random.choice(train_tokens,
-                                int(len(train_tokens) / TRAIN_DOWNSAMPLE_FACTOR),
-                                replace=False)
-val_tokens = np.random.choice(val_tokens,
-                              int(len(val_tokens) / VAL_DOWNSAMPLE_FACTOR),
-                              replace=False)
-
-# create data loaders
-train_mtpdataset = MTPDataset(train_tokens, helper)
-train_mtpdataloader = DataLoader(train_mtpdataset, batch_size=16, num_workers=0, shuffle=True)
-
-val_mtpdataset = MTPDataset(val_tokens, helper)
-val_mtpdataloader = DataLoader(val_mtpdataset, batch_size=16, num_workers=0, shuffle=False)
 
 # prepare output directories
 if not os.path.exists(EXPERIMENT_DIR):
@@ -77,23 +58,59 @@ if not os.path.exists(os.path.join(EXPERIMENT_DIR, 'weights')):
 
 
 ## HELPER FUNCTIONS ##
-def get_model(key):
-    """Return a model"""
+def get_dataset(tokens, helper, key):
     if key == 'mtp':
-        backbone = Backbone('resnext101_32x4d_swsl')
-        model = MTP(backbone, NUM_MODES)
-        model = model.to(device)
-        return model
+        mtp_dataset = MTPDataset(tokens, helper)
+        return train_mtpdataset
     elif key == 'covernet':
-        # To do
-        return None
+        covernet_dataset = CoverNetDataset(tokens, helper)
+        return covernet_dataset
+        
+def get_dataloader(dataset, batch_size=16, num_workers=0, shuffle=True):
+    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
 
+def get_model(key, backbone='resnet18'):
+    """Return a model"""
+    backbone = Backbone(backbone)
+    if key == 'mtp':
+        model = MTP(backbone, NUM_MODES)
+    elif key == 'covernet':
+        model = CoverNet(backbone, NUM_MODES)
+    
+    model = model.to(device)
+    return model
+    
 
 def get_loss_fn(key):
     """Return a loss function"""
     if key == 'mtp':
         return MTPLoss(NUM_MODES, 1, 5)
+    elif key == 'covernet':
+        
+        NUM_SECONDS_INTO_FUTURE = 6
+        
+        # Epsilon is the amount of coverage in the set, 
+        # i.e. a real world trajectory is at most 8 meters from a trajectory in this set
+        # We released the set for epsilon = 2, 4, 8. Consult the paper for more information
+        # on how this set was created
 
+        if NUM_MODES == 64:
+            PATH_TO_EPSILON_8_SET = DATA_ROOT + "/nuscenes-prediction-challenge-trajectory-sets/epsilon_8.pkl"
+            trajectories = pickle.load(open(PATH_TO_EPSILON_8_SET, 'rb'))
+        elif NUM_MODES == 415:
+            PATH_TO_EPSILON_4_SET = DATA_ROOT + "nuscenes-prediction-challenge-trajectory-sets/epsilon_4.pkl"
+            trajectories = pickle.load(open(PATH_TO_EPSILON_4_SET, 'rb'))
+        elif NUM_MODES == 2206:
+            PATH_TO_EPSILON_2_SET = DATA_ROOT + "nuscenes-prediction-challenge-trajectory-sets/epsilon_2.pkl"
+            trajectories = pickle.load(open(PATH_TO_EPSILON_2_SET, 'rb'))
+        else:
+            raise Exception('Invalid number of modes')
+
+        lattice = torch.zeros(NUM_MODES, NUM_SECONDS_INTO_FUTURE*2, 2)
+        for i in range(NUM_MODES):
+            lattice[i] = torch.Tensor(trajectories[i])
+
+        return ConstantLatticeLoss(lattice)
 
 def store_weights(model, optimizer, epoch, key):
     """Store model and optimizer weights in EXPERIMENT_DIR/weights"""
@@ -242,14 +259,38 @@ def train_epochs(key,
         store_results(all_train_results, train_results_fname)
         store_results(all_validation_results, val_results_fname)
 
+        
+# load data
+nusc = NuScenes(version=VERSION, dataroot=DATA_ROOT)
+helper = PredictHelper(nusc)
+train_tokens = get_prediction_challenge_split(TRAIN_SPLIT_NAME, dataroot=DATA_ROOT)
+val_tokens = get_prediction_challenge_split(VAL_SPLIT_NAME, dataroot=DATA_ROOT)
+
+
+# apply downsampling
+train_tokens = np.random.choice(train_tokens,
+                                int(len(train_tokens) / TRAIN_DOWNSAMPLE_FACTOR),
+                                replace=False)
+val_tokens = np.random.choice(val_tokens,
+                              int(len(val_tokens) / VAL_DOWNSAMPLE_FACTOR),
+                              replace=False)
+
+
+# create data loaders
+train_dataset = get_dataset(train_tokens, helper, KEY)
+train_dataloader = DataLoader(train_dataset, batch_size=16, num_workers=0, shuffle=True)
+
+val_dataset = get_dataset(val_tokens, helper, KEY)
+val_dataloader = DataLoader(val_dataset, batch_size=16, num_workers=0, shuffle=False)
+
 
 ## RUN TRAINING ##
 
 train_epochs(key=KEY,
              n_epochs=N_EPOCHS,
              previously_completed_epochs=PREVIOUSLY_COMPLETED_EPOCHS,
-             train_dataloader=train_mtpdataloader,
-             val_dataloader=val_mtpdataloader,
+             train_dataloader=train_dataloader,
+             val_dataloader=val_dataloader,
              load_weights_path=LOAD_WEIGHTS_PATH,
              load_optimizer_path=LOAD_OPTIMIZER_PATH
             )
