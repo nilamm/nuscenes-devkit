@@ -6,7 +6,7 @@ from nuscenes.prediction import PredictHelper
 from nuscenes.eval.prediction.splits import get_prediction_challenge_split
 
 from torch.utils.data import DataLoader
-from nuscenes.prediction.models.backbone import ResNetBackbone
+from nuscenes.prediction.models.backbone import Backbone
 from nuscenes.prediction.models.mtp import MTP, MTPLoss
 import torch.optim as optim
 from nuscenes.prediction.load_data import MTPDataset
@@ -80,7 +80,7 @@ if not os.path.exists(os.path.join(EXPERIMENT_DIR, 'weights')):
 def get_model(key):
     """Return a model"""
     if key == 'mtp':
-        backbone = ResNetBackbone('resnet18')
+        backbone = Backbone('resnext101_32x4d_swsl')
         model = MTP(backbone, NUM_MODES)
         model = model.to(device)
         return model
