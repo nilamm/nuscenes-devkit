@@ -35,7 +35,7 @@ def get_dataset(tokens, helper, args):
 
 def get_model(args):
     """Return a model"""
-    backbone = Backbone(args.backbone)
+    backbone = Backbone(args.backbone, args.freeze_bottom)
     if args.key == 'mtp':
         model = MTP(backbone, args.num_modes)
     elif args.key == 'covernet':
@@ -83,13 +83,13 @@ def store_weights(model, optimizer, epoch, args):
 
     new_weights_path = os.path.join(
         weights_dir,
-        f'{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}_{key}_weights after_epoch {epoch}.pt')
+        f'{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}_{args.key}_weights after_epoch {epoch}.pt')
     torch.save(model.state_dict(), new_weights_path)
     print("Stored weights at", new_weights_path)
 
     new_optimizer_path = os.path.join(
         weights_dir,
-        f'{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}_{key}_optimizer after_epoch {epoch}.pt')
+        f'{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}_{args.key}_optimizer after_epoch {epoch}.pt')
 
     torch.save(optimizer.state_dict(), new_optimizer_path)
     print("Stored optimizer at", new_optimizer_path)
@@ -198,22 +198,22 @@ def train_epochs(train_dataloader,
               os.path.join(args.experiment_dir, 'weights', args.load_optimizer_path))
 
     for i in range(args.n_epochs):
-        epoch = previously_completed_epochs + i
+        epoch = args.previously_completed_epochs + i
 
         print("="*15)
-        print(f"Epoch: {epoch} (model: {key})")
+        print(f"Epoch: {epoch} (model: {args.key})")
 
         # train
         train_results = run_epoch(model, optimizer, train_dataloader,
                                   loss_function, epoch, phase='train',
                                   args=args)
-        all_train_results[key+'_'+str(epoch)] = train_results
+        all_train_results[args.key+'_'+str(epoch)] = train_results
 
         # validate
         val_results = run_epoch(model, optimizer, val_dataloader,
                                 loss_function, epoch, phase='validate',
                                 args=args)
-        all_validation_results[key+'_'+str(epoch)] = val_results
+        all_validation_results[args.key+'_'+str(epoch)] = val_results
 
         # store weights
         store_weights(model, optimizer, epoch, args)
@@ -235,7 +235,7 @@ def main(args):
     config_fname = f'config_for_runtime_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
     with open(
             os.path.join(args.experiment_dir, config_fname), 'w') as json_file:
-        json.dump(var(args), json_file)
+        json.dump(vars(args), json_file)
 
     # load data
     nusc = NuScenes(version=args.version, dataroot=args.data_root)
@@ -274,28 +274,59 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train a model.')
 
     # model arguments
-    parser.add_argument('--num_modes', help='Number of trajectory options to be predicted.', default=1)
+    parser.add_argument('--num_modes',
+                        help='Number of trajectory options to be predicted.',
+                        type=int,
+                        default=1)
     parser.add_argument('--key', help='Key to identify model architecture. E.g. mtp, covernet')
     parser.add_argument('--backbone',
                         help='Which backbone vision model to use. resnet18, resnet34, resnet50, resnet101, resnet152, resnext101_32x4d_ssl, resnext101_32x4d_swsl, simclr',
                         default='resnet50')
+    parser.add_argument('--freeze_bottom', dest='freeze_bottom',
+                        help='Freeze the bottom layers of the backbone network, allowing only the top layers to be fine-tuned',
+                        action='store_true')
+    parser.add_argument('--no_freeze_bottom', dest='freeze_bottom',
+                        help='Allow all params of the backbone to be fine-tuned',
+                        action='store_false')
+    parser.set_defaults(freeze_bottom=True)
 
     # training arguments
-    parser.add_argument('--n_epochs', help='How many (more) epochs to run training.', default=15)
-    parser.add_argument('--print_every_batches', help='How often to print an update during training', default=50)
-    parser.add_argument('--batch_size', help='Batch size for training and validation data loaders.', default=16)
-    parser.add_argument('--num_works', help='Num workers for data loader', default=0)
-    parser.add_argument('--previously_completed_epochs', help='Starting epoch. If training from scratch, this is 0.', default=0)
+    parser.add_argument('--n_epochs',
+                        help='How many (more) epochs to run training.',
+                        type=int,
+                        default=15)
+    parser.add_argument('--print_every_batches',
+                        help='How often to print an update during training',
+                        type=int,
+                        default=50)
+    parser.add_argument('--batch_size',
+                        help='Batch size for training and validation data loaders.',
+                        type=int, 
+                        default=16)
+    parser.add_argument('--num_workers',
+                        help='Num workers for data loader',
+                        type=int,
+                        default=0)
+    parser.add_argument('--previously_completed_epochs',
+                        help='Starting epoch. If training from scratch, this is 0.',
+                        type=int,
+                        default=0)
     parser.add_argument('--load_weights_path', help='Name of model weights file in the directory EXPERIMENT_DIR/weights', default=None)
     parser.add_argument('--load_optimizer_path', help='Name of optimizer state file in the directory EXPERIMENT_DIR/weights', default=None)
 
     # data arguments
-    parser.add_argument('--train_downsample_factor', help='Divide training data size by this factor.', default=5)
-    parser.add_argument('--val_downsample_factor', help='Divide validation data size by this factor.', default=5)
+    parser.add_argument('--train_downsample_factor',
+                        help='Divide training data size by this factor.',
+                        type=float,
+                        default=5)
+    parser.add_argument('--val_downsample_factor',
+                        help='Divide validation data size by this factor.',
+                        type=float,
+                        default=5)
     parser.add_argument('--version', help='nuScenes version number.', default='v1.0-trainval')
     parser.add_argument('--data_root', help='Directory storing NuScenes data.', default='/home/jupyter/data/sets/nuscenes')
     parser.add_argument('--train_split_name', help='Data split to run train on.', default='train')
-    parser.add_argument('--val_split_name', help='Data split to run validation on.', default='train-val')
+    parser.add_argument('--val_split_name', help='Data split to run validation on.', default='train_val')
     parser.add_argument('--experiment_dir', help='Where to store the results. E.g. /home/jupyter/experiments/04')
 
     args = parser.parse_args()
