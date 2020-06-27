@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+import argparse
 from nuscenes import NuScenes
 from nuscenes.prediction import PredictHelper
 from nuscenes.eval.prediction.splits import get_prediction_challenge_split
@@ -23,143 +23,86 @@ torch.manual_seed(0)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 RUN_TIME = datetime.datetime.now()
 
-## HYPERPARAMETERS ##
 
-# model hyperparams
-NUM_MODES = 2206
-EXPERIMENT_DIR = '/home/jupyter/experiments/04'
-KEY = 'covernet'  # mtp, covernet
-BACKBONE = 'resnet50'  # resnet18, resnet34, resnet50, resnet101, resnet152, resnext101_32x4d_ssl, resnext101_32x4d_swsl, simclr
-PRINT_EVERY_BATCHES = 50
-
-N_EPOCHS = 15 # how many (more) epochs to run
-PREVIOUSLY_COMPLETED_EPOCHS = 0  # Starting epoch (default: 0)
-
-# load weights from previous training,
-# from directory: EXPERIMENT_DIR/weights
-# (can be None)
-LOAD_WEIGHTS_PATH = None
-LOAD_OPTIMIZER_PATH = None
-
-# data hyperparams
-TRAIN_DOWNSAMPLE_FACTOR = 5
-VAL_DOWNSAMPLE_FACTOR = 5
-VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
-DATA_ROOT = '/home/jupyter/data/sets/nuscenes'  # wherever the data is stored
-TRAIN_SPLIT_NAME = 'train'  # 'mini_train', 'mini_val', 'train', 'train_val', 'val'
-VAL_SPLIT_NAME = 'train_val'
-
-# prepare output directories
-if not os.path.exists(EXPERIMENT_DIR):
-    os.mkdir(EXPERIMENT_DIR)
-
-if not os.path.exists(os.path.join(EXPERIMENT_DIR, 'weights')):
-    os.mkdir(os.path.join(EXPERIMENT_DIR, 'weights'))
-
-# store config for later reference
-config = {
-    'notes': '',  # optional: any notes to describe this run
-    'NUM_MODES': NUM_MODES,
-    'EXPERIMENT_DIR': EXPERIMENT_DIR,
-    'KEY': KEY,
-    'BACKBONE': BACKBONE,
-    'N_EPOCHS': N_EPOCHS,
-    'PREVIOUSLY_COMPLETED_EPOCHS': PREVIOUSLY_COMPLETED_EPOCHS,
-    'LOAD_WEIGHTS_PATH': LOAD_WEIGHTS_PATH,
-    'LOAD_OPTIMIZER_PATH': LOAD_OPTIMIZER_PATH,
-    'TRAIN_DOWNSAMPLE_FACTOR': TRAIN_DOWNSAMPLE_FACTOR,
-    'VAL_DOWNSAMPLE_FACTOR': VAL_DOWNSAMPLE_FACTOR,
-    'VERSION': VERSION,
-    'DATA_ROOT': DATA_ROOT,
-    'TRAIN_SPLIT_NAME': TRAIN_SPLIT_NAME,
-    'VAL_SPLIT_NAME': VAL_SPLIT_NAME
-}
-config_fname = f'config_for_runtime_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
-with open(os.path.join(EXPERIMENT_DIR, config_fname), 'w') as json_file:
-    json.dump(config, json_file)
-
-
-## HELPER FUNCTIONS ##
-def get_dataset(tokens, helper, key):
-    if key == 'mtp':
+def get_dataset(tokens, helper, args):
+    if args.key == 'mtp':
         mtp_dataset = MTPDataset(tokens, helper)
         return train_mtpdataset
-    elif key == 'covernet':
+    elif args.key == 'covernet':
         covernet_dataset = CoverNetDataset(tokens, helper)
         return covernet_dataset
-        
-def get_dataloader(dataset, batch_size=16, num_workers=0, shuffle=True):
-    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
 
-def get_model(key, backbone='resnet18'):
+
+def get_model(args):
     """Return a model"""
-    backbone = Backbone(backbone)
-    if key == 'mtp':
-        model = MTP(backbone, NUM_MODES)
-    elif key == 'covernet':
-        model = CoverNet(backbone, NUM_MODES)
-    
+    backbone = Backbone(args.backbone, args.freeze_bottom)
+    if args.key == 'mtp':
+        model = MTP(backbone, args.num_modes)
+    elif args.key == 'covernet':
+        model = CoverNet(backbone, args.num_modes)
+
     model = model.to(device)
     return model
-    
 
-def get_loss_fn(key):
+
+def get_loss_fn(args):
     """Return a loss function"""
-    if key == 'mtp':
-        return MTPLoss(NUM_MODES, 1, 5)
-    elif key == 'covernet':
-        
+    if args.key == 'mtp':
+        return MTPLoss(args.num_modes, 1, 5)
+    elif args.key == 'covernet':
+
         NUM_SECONDS_INTO_FUTURE = 6
-        
-        # Epsilon is the amount of coverage in the set, 
+
+        # Epsilon is the amount of coverage in the set,
         # i.e. a real world trajectory is at most 8 meters from a trajectory in this set
         # We released the set for epsilon = 2, 4, 8. Consult the paper for more information
         # on how this set was created
 
-        if NUM_MODES == 64:
-            PATH_TO_EPSILON_8_SET = DATA_ROOT + "/nuscenes-prediction-challenge-trajectory-sets/epsilon_8.pkl"
+        if args.num_modes == 64:
+            PATH_TO_EPSILON_8_SET = args.data_root + "/nuscenes-prediction-challenge-trajectory-sets/epsilon_8.pkl"
             trajectories = pickle.load(open(PATH_TO_EPSILON_8_SET, 'rb'))
-        elif NUM_MODES == 415:
-            PATH_TO_EPSILON_4_SET = DATA_ROOT + "/nuscenes-prediction-challenge-trajectory-sets/epsilon_4.pkl"
+        elif args.num_modes == 415:
+            PATH_TO_EPSILON_4_SET = args.data_root + "/nuscenes-prediction-challenge-trajectory-sets/epsilon_4.pkl"
             trajectories = pickle.load(open(PATH_TO_EPSILON_4_SET, 'rb'))
-        elif NUM_MODES == 2206:
-            PATH_TO_EPSILON_2_SET = DATA_ROOT + "/nuscenes-prediction-challenge-trajectory-sets/epsilon_2.pkl"
+        elif args.num_modes == 2206:
+            PATH_TO_EPSILON_2_SET = args.data_root + "/nuscenes-prediction-challenge-trajectory-sets/epsilon_2.pkl"
             trajectories = pickle.load(open(PATH_TO_EPSILON_2_SET, 'rb'))
         else:
             raise Exception('Invalid number of modes')
 
-        lattice = torch.zeros(NUM_MODES, NUM_SECONDS_INTO_FUTURE*2, 2)
-        for i in range(NUM_MODES):
+        lattice = torch.zeros(args.num_modes, NUM_SECONDS_INTO_FUTURE*2, 2)
+        for i in range(args.num_modes):
             lattice[i] = torch.Tensor(trajectories[i])
 
         return ConstantLatticeLoss(lattice)
 
-def store_weights(model, optimizer, epoch, key):
+
+def store_weights(model, optimizer, epoch, args):
     """Store model and optimizer weights in EXPERIMENT_DIR/weights"""
-    weights_dir = os.path.join(EXPERIMENT_DIR, 'weights')
+    weights_dir = os.path.join(args.experiment_dir, 'weights')
 
     new_weights_path = os.path.join(
         weights_dir,
-        f'{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}_{key}_weights after_epoch {epoch}.pt')
+        f'{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}_{args.key}_weights after_epoch {epoch}.pt')
     torch.save(model.state_dict(), new_weights_path)
     print("Stored weights at", new_weights_path)
 
     new_optimizer_path = os.path.join(
         weights_dir,
-        f'{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}_{key}_optimizer after_epoch {epoch}.pt')
+        f'{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}_{args.key}_optimizer after_epoch {epoch}.pt')
 
     torch.save(optimizer.state_dict(), new_optimizer_path)
     print("Stored optimizer at", new_optimizer_path)
 
 
-def store_results(results, fname):
+def store_results(results, fname, args):
     """Store training or evaluation results in EXPERIMENT_DIR"""
-    with open(os.path.join(EXPERIMENT_DIR, fname), 'w') as json_file:
+    with open(os.path.join(args.experiment_dir, fname), 'w') as json_file:
         json.dump(results, json_file)
     print("Stored results at", fname)
 
 
-def run_epoch(model, optimizer, dataloader, loss_function, epoch, phase):
+def run_epoch(model, optimizer, dataloader, loss_function, epoch, phase, args):
     """
     Run one epoch of either training or validation
 
@@ -180,7 +123,7 @@ def run_epoch(model, optimizer, dataloader, loss_function, epoch, phase):
     running_loss = 0.0
 
     for i, (img, agent_state_vector, ground_truth, _, _) in enumerate(dataloader):
-        if (i % PRINT_EVERY_BATCHES == 0) and (i > 0):
+        if (i % args.print_every_batches == 0) and (i > 0):
             print(f"Running loss after {i} batches: {(running_loss / i):4f}",
                   datetime.datetime.now())
 
@@ -215,14 +158,9 @@ def run_epoch(model, optimizer, dataloader, loss_function, epoch, phase):
     }
 
 
-def train_epochs(key,
-                 backbone,
-                 n_epochs,
-                 train_dataloader,
+def train_epochs(train_dataloader,
                  val_dataloader,
-                 previously_completed_epochs=0,
-                 load_weights_path=None,
-                 load_optimizer_path=None):
+                 args):
     """
     Run several epochs of training and evaluation for a model, optionally
     loading weights.
@@ -235,8 +173,8 @@ def train_epochs(key,
     print()
 
     # load model
-    model = get_model(key, backbone)
-    loss_function = get_loss_fn(key)
+    model = get_model(args)
+    loss_function = get_loss_fn(args)
     optimizer = optim.SGD(model.parameters(), lr=0.1)
 
     # prepare for storing results
@@ -244,77 +182,152 @@ def train_epochs(key,
     all_validation_results = {}
     train_results_fname = f'train_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
     val_results_fname = f'val_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
-    
+
     # optionally load model weights
-    if load_weights_path:
+    if args.load_weights_path:
         model.load_state_dict(
-            torch.load(os.path.join(EXPERIMENT_DIR, 'weights', load_weights_path)))
+            torch.load(os.path.join(args.experiment_dir, 'weights', args.load_weights_path)))
         print("Loaded model weights from",
-              os.path.join(EXPERIMENT_DIR, 'weights', load_weights_path))
+              os.path.join(args.experiment_dir, 'weights', args.load_weights_path))
 
     # optionally load optimizer weights
-    if load_optimizer_path:
+    if args.load_optimizer_path:
         optimizer.load_state_dict(
-            torch.load(os.path.join(EXPERIMENT_DIR, 'weights', load_optimizer_path)))
+            torch.load(os.path.join(args.experiment_dir, 'weights', args.load_optimizer_path)))
         print("Loaded optimizer weights from",
-              os.path.join(EXPERIMENT_DIR, 'weights', load_optimizer_path))
+              os.path.join(args.experiment_dir, 'weights', args.load_optimizer_path))
 
-    for i in range(n_epochs):
-        epoch = previously_completed_epochs + i
+    for i in range(args.n_epochs):
+        epoch = args.previously_completed_epochs + i
 
         print("="*15)
-        print(f"Epoch: {epoch} (model: {key})")
+        print(f"Epoch: {epoch} (model: {args.key})")
 
         # train
         train_results = run_epoch(model, optimizer, train_dataloader,
-                                  loss_function, epoch, phase='train')
-        all_train_results[key+'_'+str(epoch)] = train_results
+                                  loss_function, epoch, phase='train',
+                                  args=args)
+        all_train_results[args.key+'_'+str(epoch)] = train_results
 
         # validate
         val_results = run_epoch(model, optimizer, val_dataloader,
-                                loss_function, epoch, phase='validate')
-        all_validation_results[key+'_'+str(epoch)] = val_results
+                                loss_function, epoch, phase='validate',
+                                args=args)
+        all_validation_results[args.key+'_'+str(epoch)] = val_results
 
         # store weights
-        store_weights(model, optimizer, epoch, key)
+        store_weights(model, optimizer, epoch, args)
 
         # store results
-        store_results(all_train_results, train_results_fname)
-        store_results(all_validation_results, val_results_fname)
-
-        
-# load data
-nusc = NuScenes(version=VERSION, dataroot=DATA_ROOT)
-helper = PredictHelper(nusc)
-train_tokens = get_prediction_challenge_split(TRAIN_SPLIT_NAME, dataroot=DATA_ROOT)
-val_tokens = get_prediction_challenge_split(VAL_SPLIT_NAME, dataroot=DATA_ROOT)
+        store_results(all_train_results, train_results_fname, args)
+        store_results(all_validation_results, val_results_fname, args)
 
 
-# apply downsampling
-train_tokens = np.random.choice(train_tokens,
-                                int(len(train_tokens) / TRAIN_DOWNSAMPLE_FACTOR),
-                                replace=False)
-val_tokens = np.random.choice(val_tokens,
-                              int(len(val_tokens) / VAL_DOWNSAMPLE_FACTOR),
-                              replace=False)
+def main(args):
+    # prepare output directories
+    if not os.path.exists(args.experiment_dir):
+        os.mkdir(args.experiment_dir)
+
+    if not os.path.exists(os.path.join(args.experiment_dir, 'weights')):
+        os.mkdir(os.path.join(args.experiment_dir, 'weights'))
+
+    # store the arguments for reference
+    config_fname = f'config_for_runtime_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
+    with open(
+            os.path.join(args.experiment_dir, config_fname), 'w') as json_file:
+        json.dump(vars(args), json_file)
+
+    # load data
+    nusc = NuScenes(version=args.version, dataroot=args.data_root)
+    helper = PredictHelper(nusc)
+    train_tokens = get_prediction_challenge_split(args.train_split_name,
+                                                  dataroot=args.data_root)
+    val_tokens = get_prediction_challenge_split(args.val_split_name,
+                                                dataroot=args.data_root)
+
+    # apply downsampling
+    train_tokens = np.random.choice(
+        train_tokens,
+        int(len(train_tokens) / args.train_downsample_factor),
+        replace=False)
+    val_tokens = np.random.choice(
+        val_tokens,
+        int(len(val_tokens) / args.val_downsample_factor),
+        replace=False)
+
+    # create data loaders
+    train_dataset = get_dataset(train_tokens, helper, args)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size,
+                                  num_workers=args.num_workers, shuffle=True)
+
+    val_dataset = get_dataset(val_tokens, helper, args)
+    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size,
+                                num_workers=args.num_workers, shuffle=False)
+
+    # run training
+    train_epochs(train_dataloader=train_dataloader,
+                 val_dataloader=val_dataloader,
+                 args=args)
 
 
-# create data loaders
-train_dataset = get_dataset(train_tokens, helper, KEY)
-train_dataloader = DataLoader(train_dataset, batch_size=16, num_workers=0, shuffle=True)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Train a model.')
 
-val_dataset = get_dataset(val_tokens, helper, KEY)
-val_dataloader = DataLoader(val_dataset, batch_size=16, num_workers=0, shuffle=False)
+    # model arguments
+    parser.add_argument('--num_modes',
+                        help='Number of trajectory options to be predicted.',
+                        type=int,
+                        default=1)
+    parser.add_argument('--key', help='Key to identify model architecture. E.g. mtp, covernet')
+    parser.add_argument('--backbone',
+                        help='Which backbone vision model to use. resnet18, resnet34, resnet50, resnet101, resnet152, resnext101_32x4d_ssl, resnext101_32x4d_swsl, simclr',
+                        default='resnet50')
+    parser.add_argument('--freeze_bottom', dest='freeze_bottom',
+                        help='Freeze the bottom layers of the backbone network, allowing only the top layers to be fine-tuned',
+                        action='store_true')
+    parser.add_argument('--no_freeze_bottom', dest='freeze_bottom',
+                        help='Allow all params of the backbone to be fine-tuned',
+                        action='store_false')
+    parser.set_defaults(freeze_bottom=True)
 
+    # training arguments
+    parser.add_argument('--n_epochs',
+                        help='How many (more) epochs to run training.',
+                        type=int,
+                        default=15)
+    parser.add_argument('--print_every_batches',
+                        help='How often to print an update during training',
+                        type=int,
+                        default=50)
+    parser.add_argument('--batch_size',
+                        help='Batch size for training and validation data loaders.',
+                        type=int, 
+                        default=16)
+    parser.add_argument('--num_workers',
+                        help='Num workers for data loader',
+                        type=int,
+                        default=0)
+    parser.add_argument('--previously_completed_epochs',
+                        help='Starting epoch. If training from scratch, this is 0.',
+                        type=int,
+                        default=0)
+    parser.add_argument('--load_weights_path', help='Name of model weights file in the directory EXPERIMENT_DIR/weights', default=None)
+    parser.add_argument('--load_optimizer_path', help='Name of optimizer state file in the directory EXPERIMENT_DIR/weights', default=None)
 
-## RUN TRAINING ##
+    # data arguments
+    parser.add_argument('--train_downsample_factor',
+                        help='Divide training data size by this factor.',
+                        type=float,
+                        default=5)
+    parser.add_argument('--val_downsample_factor',
+                        help='Divide validation data size by this factor.',
+                        type=float,
+                        default=5)
+    parser.add_argument('--version', help='nuScenes version number.', default='v1.0-trainval')
+    parser.add_argument('--data_root', help='Directory storing NuScenes data.', default='/home/jupyter/data/sets/nuscenes')
+    parser.add_argument('--train_split_name', help='Data split to run train on.', default='train')
+    parser.add_argument('--val_split_name', help='Data split to run validation on.', default='train_val')
+    parser.add_argument('--experiment_dir', help='Where to store the results. E.g. /home/jupyter/experiments/04')
 
-train_epochs(key=KEY,
-             backbone=BACKBONE,
-             n_epochs=N_EPOCHS,
-             previously_completed_epochs=PREVIOUSLY_COMPLETED_EPOCHS,
-             train_dataloader=train_dataloader,
-             val_dataloader=val_dataloader,
-             load_weights_path=LOAD_WEIGHTS_PATH,
-             load_optimizer_path=LOAD_OPTIMIZER_PATH
-            )
+    args = parser.parse_args()
+    main(args)
