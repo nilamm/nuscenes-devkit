@@ -26,13 +26,13 @@ RUN_TIME = datetime.datetime.now()
 ## HYPERPARAMETERS ##
 
 # model hyperparams
-NUM_MODES = 64
-EXPERIMENT_DIR = '/home/jupyter/experiments/03'
+NUM_MODES = 2206
+EXPERIMENT_DIR = '/home/jupyter/experiments/04'
 KEY = 'covernet'  # mtp, covernet
 BACKBONE = 'resnet50'  # resnet18, resnet34, resnet50, resnet101, resnet152, resnext101_32x4d_ssl, resnext101_32x4d_swsl, simclr
 PRINT_EVERY_BATCHES = 50
 
-N_EPOCHS = 9 # how many (more) epochs to run
+N_EPOCHS = 15 # how many (more) epochs to run
 PREVIOUSLY_COMPLETED_EPOCHS = 0  # Starting epoch (default: 0)
 
 # load weights from previous training,
@@ -42,12 +42,19 @@ LOAD_WEIGHTS_PATH = None
 LOAD_OPTIMIZER_PATH = None
 
 # data hyperparams
-TRAIN_DOWNSAMPLE_FACTOR = 500
-VAL_DOWNSAMPLE_FACTOR = 500
+TRAIN_DOWNSAMPLE_FACTOR = 5
+VAL_DOWNSAMPLE_FACTOR = 5
 VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
 DATA_ROOT = '/home/jupyter/data/sets/nuscenes'  # wherever the data is stored
 TRAIN_SPLIT_NAME = 'train'  # 'mini_train', 'mini_val', 'train', 'train_val', 'val'
 VAL_SPLIT_NAME = 'train_val'
+
+# prepare output directories
+if not os.path.exists(EXPERIMENT_DIR):
+    os.mkdir(EXPERIMENT_DIR)
+
+if not os.path.exists(os.path.join(EXPERIMENT_DIR, 'weights')):
+    os.mkdir(os.path.join(EXPERIMENT_DIR, 'weights'))
 
 # store config for later reference
 config = {
@@ -70,14 +77,6 @@ config = {
 config_fname = f'config_for_runtime_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
 with open(os.path.join(EXPERIMENT_DIR, config_fname), 'w') as json_file:
     json.dump(config, json_file)
-
-
-# prepare output directories
-if not os.path.exists(EXPERIMENT_DIR):
-    os.mkdir(EXPERIMENT_DIR)
-
-if not os.path.exists(os.path.join(EXPERIMENT_DIR, 'weights')):
-    os.mkdir(os.path.join(EXPERIMENT_DIR, 'weights'))
 
 
 ## HELPER FUNCTIONS ##
