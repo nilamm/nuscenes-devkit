@@ -28,7 +28,8 @@ RUN_TIME = datetime.datetime.now()
 # model hyperparams
 NUM_MODES = 64
 EXPERIMENT_DIR = '/home/jupyter/experiments/03'
-KEY = 'covernet'
+KEY = 'covernet'  # mtp, covernet
+BACKBONE = 'resnet50'  # resnet18, resnet34, resnet50, resnet101, resnet152, resnext101_32x4d_ssl, resnext101_32x4d_swsl, simclr
 PRINT_EVERY_BATCHES = 50
 
 N_EPOCHS = 9 # how many (more) epochs to run
@@ -41,12 +42,34 @@ LOAD_WEIGHTS_PATH = None
 LOAD_OPTIMIZER_PATH = None
 
 # data hyperparams
-TRAIN_DOWNSAMPLE_FACTOR = 5 
-VAL_DOWNSAMPLE_FACTOR = 5
+TRAIN_DOWNSAMPLE_FACTOR = 500
+VAL_DOWNSAMPLE_FACTOR = 500
 VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
 DATA_ROOT = '/home/jupyter/data/sets/nuscenes'  # wherever the data is stored
 TRAIN_SPLIT_NAME = 'train'  # 'mini_train', 'mini_val', 'train', 'train_val', 'val'
 VAL_SPLIT_NAME = 'train_val'
+
+# store config for later reference
+config = {
+    'notes': '',  # optional: any notes to describe this run
+    'NUM_MODES': NUM_MODES,
+    'EXPERIMENT_DIR': EXPERIMENT_DIR,
+    'KEY': KEY,
+    'BACKBONE': BACKBONE,
+    'N_EPOCHS': N_EPOCHS,
+    'PREVIOUSLY_COMPLETED_EPOCHS': PREVIOUSLY_COMPLETED_EPOCHS,
+    'LOAD_WEIGHTS_PATH': LOAD_WEIGHTS_PATH,
+    'LOAD_OPTIMIZER_PATH': LOAD_OPTIMIZER_PATH,
+    'TRAIN_DOWNSAMPLE_FACTOR': TRAIN_DOWNSAMPLE_FACTOR,
+    'VAL_DOWNSAMPLE_FACTOR': VAL_DOWNSAMPLE_FACTOR,
+    'VERSION': VERSION,
+    'DATA_ROOT': DATA_ROOT,
+    'TRAIN_SPLIT_NAME': TRAIN_SPLIT_NAME,
+    'VAL_SPLIT_NAME': VAL_SPLIT_NAME
+}
+config_fname = f'config_for_runtime_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
+with open(os.path.join(EXPERIMENT_DIR, config_fname), 'w') as json_file:
+    json.dump(config, json_file)
 
 
 # prepare output directories
@@ -194,6 +217,7 @@ def run_epoch(model, optimizer, dataloader, loss_function, epoch, phase):
 
 
 def train_epochs(key,
+                 backbone,
                  n_epochs,
                  train_dataloader,
                  val_dataloader,
@@ -212,14 +236,14 @@ def train_epochs(key,
     print()
 
     # load model
-    model = get_model(key)
+    model = get_model(key, backbone)
     loss_function = get_loss_fn(key)
     optimizer = optim.SGD(model.parameters(), lr=0.1)
 
     # prepare for storing results
     all_train_results = {}
     all_validation_results = {}
-    train_results_fname = f'tain_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
+    train_results_fname = f'train_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
     val_results_fname = f'val_results_{RUN_TIME:%Y-%m-%d %Hh%Mm%Ss}.json'
     
     # optionally load model weights
@@ -287,6 +311,7 @@ val_dataloader = DataLoader(val_dataset, batch_size=16, num_workers=0, shuffle=F
 ## RUN TRAINING ##
 
 train_epochs(key=KEY,
+             backbone=BACKBONE,
              n_epochs=N_EPOCHS,
              previously_completed_epochs=PREVIOUSLY_COMPLETED_EPOCHS,
              train_dataloader=train_dataloader,
