@@ -120,10 +120,10 @@ def get_loss_fn(key):
             PATH_TO_EPSILON_8_SET = DATA_ROOT + "/nuscenes-prediction-challenge-trajectory-sets/epsilon_8.pkl"
             trajectories = pickle.load(open(PATH_TO_EPSILON_8_SET, 'rb'))
         elif NUM_MODES == 415:
-            PATH_TO_EPSILON_4_SET = DATA_ROOT + "nuscenes-prediction-challenge-trajectory-sets/epsilon_4.pkl"
+            PATH_TO_EPSILON_4_SET = DATA_ROOT + "/nuscenes-prediction-challenge-trajectory-sets/epsilon_4.pkl"
             trajectories = pickle.load(open(PATH_TO_EPSILON_4_SET, 'rb'))
         elif NUM_MODES == 2206:
-            PATH_TO_EPSILON_2_SET = DATA_ROOT + "nuscenes-prediction-challenge-trajectory-sets/epsilon_2.pkl"
+            PATH_TO_EPSILON_2_SET = DATA_ROOT + "/nuscenes-prediction-challenge-trajectory-sets/epsilon_2.pkl"
             trajectories = pickle.load(open(PATH_TO_EPSILON_2_SET, 'rb'))
         else:
             raise Exception('Invalid number of modes')
