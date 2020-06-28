@@ -26,6 +26,7 @@ EXPERIMENT_DIR = '/home/jupyter/experiments/01'
 WEIGHTS = None
 NUM_MODES = 2
 N_STEPS = 12  # 12 = 6 seconds * 2 frames/seconds
+BACKBONE = 'resnet18'
 
 # data hyperparams
 VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
@@ -44,7 +45,7 @@ dataloader = DataLoader(dataset, batch_size=16, num_workers=1, shuffle=False)
 
 ## PREPARE MODEL ##
 
-backbone = ResNetBackbone('resnet18')  # TODO: this could vary
+backbone = ResNetBackbone(BACKBONE)  # TODO: this could vary
 model = MTP(backbone, NUM_MODES)
 model = model.to(device)
 
