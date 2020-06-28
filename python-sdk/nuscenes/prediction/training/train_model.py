@@ -224,6 +224,9 @@ def train_epochs(train_dataloader,
 
 
 def main(args):
+    print("Args:")
+    print(vars(args))
+
     # prepare output directories
     if not os.path.exists(args.experiment_dir):
         os.mkdir(args.experiment_dir)
@@ -301,7 +304,7 @@ if __name__ == "__main__":
                         default=50)
     parser.add_argument('--batch_size',
                         help='Batch size for training and validation data loaders.',
-                        type=int, 
+                        type=int,
                         default=16)
     parser.add_argument('--num_workers',
                         help='Num workers for data loader',
