@@ -42,10 +42,11 @@ def set_classification_layer_simclr(model, output_dim):
 
 
 def get_simclr_model():
-    from simclr_google.resnet_wider import resnet50x4
-    model = resnet50x4()
-    simclr_path = 'simclr_google'
-    sd = torch.load(os.path.join(simclr_path, 'resnet50-4x.pth'), map_location='cpu')
+    from nuscenes.prediction.models.simclr_google import resnet_wider
+    model = resnet_wider.resnet50x4()
+    sd = torch.load(os.path.join(
+        os.path.dirname(resnet_wider.__file__),
+        'resnet50-4x.pth'), map_location='cpu')
     model.load_state_dict(sd['state_dict'])
     return model
 
