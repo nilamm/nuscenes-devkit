@@ -1,4 +1,4 @@
- T""" Script for running MTP model on a given nuscenes-split. """
+""" Script for running MTP model on a given nuscenes-split. """
 
 import json
 import os
@@ -26,7 +26,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # inference hyperparams
 EXPERIMENT_DIR = '/home/jupyter/experiments/04'
-WEIGHTS = '2020-06-28 02h00m03s_covernet_weights after_epoch 4.pt'
+WEIGHTS = '2020-06-27 16h57m05s_covernet_optimizer after_epoch 0.pt'
 NUM_MODES = 2206
 N_STEPS = 12  # 12 = 6 seconds * 2 frames/seconds
 BACKBONE = 'resnet50'
@@ -77,7 +77,7 @@ def get_fixed_trajectory_set(num_modes):
     return trajectories
       
         
-get_model(KEY, BACKBONE, NUM_MODES)
+model = get_model(KEY, BACKBONE, NUM_MODES)
 
 if WEIGHTS is not None:
     model.load_state_dict(
