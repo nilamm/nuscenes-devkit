@@ -15,7 +15,9 @@ from nuscenes.prediction import PredictHelper
 
 
 def compute_metrics(predictions: List[Dict[str, Any]],
-                    helper: PredictHelper, config: PredictionConfig) -> Dict[str, Any]:
+                    helper: PredictHelper, config: PredictionConfig,
+                    in_agent_frame: bool
+                   ) -> Dict[str, Any]:
     """
     Computes metrics from a set of predictions.
     :param predictions: List of prediction JSON objects.
@@ -29,7 +31,7 @@ def compute_metrics(predictions: List[Dict[str, Any]],
     for i, prediction_str in enumerate(predictions):
         prediction = Prediction.deserialize(prediction_str)
         ground_truth = helper.get_future_for_agent(prediction.instance, prediction.sample,
-                                                   config.seconds, in_agent_frame=False)
+                                                   config.seconds, in_agent_frame=in_agent_frame)
         for metric in config.metrics:
             containers[metric.name][i] = metric(ground_truth, prediction)
     aggregations: Dict[str, Dict[str, List[float]]] = defaultdict(dict)
@@ -40,7 +42,8 @@ def compute_metrics(predictions: List[Dict[str, Any]],
 
 
 def main(version: str, data_root: str, submission_path: str,
-         config_name: str = 'predict_2020_icra.json') -> None:
+         in_agent_frame: bool,
+         config_name: str = 'predict_2020_icra.json',) -> None:
     """
     Computes metrics for a submission stored in submission_path with a given submission_name with the metrics
     specified by the config_name.
@@ -53,7 +56,7 @@ def main(version: str, data_root: str, submission_path: str,
     nusc = NuScenes(version=version, dataroot=data_root)
     helper = PredictHelper(nusc)
     config = load_prediction_config(helper, config_name)
-    results = compute_metrics(predictions, helper, config)
+    results = compute_metrics(predictions, helper, config, in_agent_frame)
     json.dump(results, open(submission_path.replace('.json', '_metrics.json'), "w"), indent=2)
 
 
@@ -63,5 +66,8 @@ if __name__ == "__main__":
     parser.add_argument('--data_root', help='Directory storing NuScenes data.', default='/data/sets/nuscenes')
     parser.add_argument('--submission_path', help='Path storing the submission file.')
     parser.add_argument('--config_name', help='Config file to use.', default='predict_2020_icra.json')
+    parser.add_argument('--in_agent_frame', help="Prediction trajectories are in the agent's frame", dest='in_agent_frame', action='store_true')
+    parser.add_argument('--in_global_frame', help="Prediction trajectories are in the global frame", dest='in_agent_frame', action='store_false')
+    parser.set_defaults(in_agent_frame=False)
     args = parser.parse_args()
-    main(args.version, args.data_root, args.submission_path, args.config_name)
+    main(args.version, args.data_root, args.submission_path, args.in_agent_frame, args.config_name)
