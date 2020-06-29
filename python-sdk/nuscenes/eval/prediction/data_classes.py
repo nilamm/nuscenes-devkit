@@ -6,7 +6,7 @@ import numpy as np
 
 from nuscenes.eval.common.data_classes import MetricData
 
-MAX_NUMBER_OF_MODES = 25
+MAX_NUMBER_OF_MODES = 2206
 
 
 class Prediction(MetricData):
