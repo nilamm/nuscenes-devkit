@@ -126,11 +126,10 @@ def get_predictions(key):
                 instance_token = instance_tokens[i]
                 sample_token = sample_tokens[i]
 
-                #picking the top 25 trajectories because Prediction class has an upper bound
                 trajectories_cpy = trajectories_cpy[np.argsort(logits)[::-1]]
-                trajectories_cpy = trajectories_cpy[:25]
+                #trajectories_cpy = trajectories_cpy[:25]
                 logits = logits[np.argsort(logits)[::-1]]
-                logits = logits[:25]
+                #logits = logits[:25]
 
                 all_predictions.append(Prediction(
                     instance_token,
