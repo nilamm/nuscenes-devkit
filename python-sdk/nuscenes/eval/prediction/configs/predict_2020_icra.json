@@ -18,7 +18,8 @@
             "k_to_report": [
                 1,
                 5,
-                10
+                10,
+                15
             ],
             "name": "MinADEK",
             "aggregators": [
