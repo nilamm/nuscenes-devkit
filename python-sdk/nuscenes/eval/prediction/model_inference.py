@@ -21,15 +21,17 @@ import copy
 np.random.seed(0)
 torch.manual_seed(0)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+torch.cuda.empty_cache()
 
 ## HYPERPARAMETERS ##
 
 # inference hyperparams
 EXPERIMENT_DIR = '/home/jupyter/experiments/04'
-WEIGHTS = '2020-06-27 16h57m05s_covernet_optimizer after_epoch 0.pt'
+WEIGHTS = '2020-06-27 21h04m45s_covernet_weights after_epoch 3.pt'
 NUM_MODES = 2206
 N_STEPS = 12  # 12 = 6 seconds * 2 frames/seconds
 BACKBONE = 'resnet50'
+FREEZE = True
 
 # data hyperparams
 VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
@@ -44,15 +46,16 @@ KEY = 'covernet'
 nusc = NuScenes(version=VERSION, dataroot=DATA_ROOT)
 helper = PredictHelper(nusc)
 data_tokens = get_prediction_challenge_split(SPLIT_NAME, dataroot=DATA_ROOT)
-dataset = MTPDataset(data_tokens, helper)
-dataloader = DataLoader(dataset, batch_size=16, num_workers=1, shuffle=False)
+dataset = CoverNetDataset(data_tokens, helper)
+dataloader = DataLoader(dataset, batch_size=16, num_workers=0, shuffle=False)
 print(f"Loaded split {SPLIT_NAME}, length {len(dataset)}, in {len(dataloader)} batches.")
+
 
 ## PREPARE MODEL ##
 
 #TO DO (sj3003): Can we move this to a common place, seems to be used in a couple of other places as well
 def get_model(key, backbone, num_modes):
-    backbone = Backbone(backbone)  # TODO: this could vary
+    backbone = Backbone(backbone, FREEZE)
     if key == 'mtp':
         model = MTP(backbone, num_modes)
     elif key == 'covernet':
@@ -86,58 +89,64 @@ if WEIGHTS is not None:
 model.eval()
 
 def get_predictions(key):
-    print(len(dataloader))
+
     all_predictions = []
-    i = 0
-    for img, agent_state_vector, gt, instance_tokens, sample_tokens in dataloader:
-        print(idx)
+    
+    if key == 'covernet':
+        trajectories = np.array(get_fixed_trajectory_set(NUM_MODES))
+
+    for j, (img, agent_state_vector, _, instance_tokens, sample_tokens) in enumerate(dataloader):
+        if (j % 20 == 0) and (j > 0):
+            print(f"Completed batch {j}", datetime.datetime.now())
         img = img.to(device).float()
         agent_state_vector = agent_state_vector.to(device).float()
 
         with torch.no_grad():
             model_pred = model(img, agent_state_vector)
+            model_pred = model_pred.cpu().detach().numpy()
         
-        #model outputs are x, y positions
-        if key == 'mtp':
-            for i in range(model_pred.size(0)):
-                pred = model_pred[i].cpu().detach().numpy()
-                instance_token = instance_tokens[i]
-                sample_token = sample_tokens[i]
+            #model outputs are x, y positions
+            if key == 'mtp':
+                for i in range(model_pred.size(0)):
+                    pred = model_pred[i].cpu().detach().numpy()
+                    instance_token = instance_tokens[i]
+                    sample_token = sample_tokens[i]
 
-                # collect the predicted trajectories and correspondings probabilities
-                trajectories = []
-                probs = []
-                for j in range(NUM_MODES):
-                    trajectories.append(pred[j*(N_STEPS*2+1):(j+1)*(N_STEPS*2+1)-1].reshape(-1, 2))
-                    probs.append(pred[(j+1)*(N_STEPS*2+1)-1].item())
-                
-                all_predictions.append(Prediction(
-                    instance_token,
-                    sample_token,
-                    np.array(trajectories),
-                    F.softmax(torch.Tensor(probs), dim=0).numpy()).serialize())
+                    # collect the predicted trajectories and correspondings probabilities
+                    trajectories = []
+                    probs = []
+                    for j in range(NUM_MODES):
+                        trajectories.append(pred[j*(N_STEPS*2+1):(j+1)*(N_STEPS*2+1)-1].reshape(-1, 2))
+                        probs.append(pred[(j+1)*(N_STEPS*2+1)-1].item())
 
-        #model outputs are logits corresponding to a pre-built fixed trajectory set
-        elif key == 'covernet':
-            trajectories = np.array(get_fixed_trajectory_set(NUM_MODES))
-            for i in range(model_pred.size(0)):
-                trajectories_cpy = copy.deepcopy(trajectories)
-                logits = model_pred[i].cpu().detach().numpy()
-                instance_token = instance_tokens[i]
-                sample_token = sample_tokens[i]
+                    all_predictions.append(Prediction(
+                        instance_token,
+                        sample_token,
+                        np.array(trajectories),
+                        F.softmax(torch.Tensor(probs), dim=0).numpy()).serialize())
 
-                trajectories_cpy = trajectories_cpy[np.argsort(logits)[::-1]]
-                #trajectories_cpy = trajectories_cpy[:25]
-                logits = logits[np.argsort(logits)[::-1]]
-                #logits = logits[:25]
+            #model outputs are logits corresponding to a pre-built fixed trajectory set
+            elif key == 'covernet':
+#                 trajectories = np.array(get_fixed_trajectory_set(NUM_MODES))
+                for i in range(model_pred.shape[0]):
+                    trajectories_cpy = copy.deepcopy(trajectories)
+#                     logits = model_pred[i].cpu().detach().numpy()
+                    logits = model_pred[i]
+                    instance_token = instance_tokens[i]
+                    sample_token = sample_tokens[i]
 
-                all_predictions.append(Prediction(
-                    instance_token,
-                    sample_token,
-                    trajectories_cpy,
-                    F.softmax(torch.Tensor(logits), dim=0).numpy()).serialize())
+                    trajectories_cpy = trajectories[np.argsort(logits)[::-1]]
+                    trajectories_cpy = trajectories_cpy[:25]
+                    logits = logits[np.argsort(logits)[::-1]]
+                    logits = logits[:25]
+
+                    all_predictions.append(Prediction(
+                        instance_token,
+                        sample_token,
+                        trajectories_cpy,
+                        F.softmax(torch.Tensor(logits), dim=0).numpy()).serialize())
             
-        return all_predictions
+    return all_predictions
 
 predictions = get_predictions(KEY)
 json.dump(predictions,
