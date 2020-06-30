@@ -227,6 +227,9 @@ def train_epochs(train_dataloader,
 def main(args):
     print("Args:")
     print(vars(args))
+    
+    print("Device:")
+    print(device)
 
     # prepare output directories
     if not os.path.exists(args.experiment_dir):
