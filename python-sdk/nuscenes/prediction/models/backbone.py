@@ -113,7 +113,7 @@ def get_pretrained_model(model_key,
         if freeze_bottom:
             freeze_bottom_resnet(model)
         return model
-    elif model_key in ['resnext101_32x4d_swsl', 'resnext101_32x4d_ssl']:
+    elif model_key in ['resnext101_32x4d_swsl', 'resnext101_32x4d_ssl', 'resnet50_swsl', 'resnet50_ssl']:
         model = load_ss_imagenet_models(model_key)
         if freeze_bottom:
             freeze_bottom_resnet(model)
