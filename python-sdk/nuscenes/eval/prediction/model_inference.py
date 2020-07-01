@@ -26,11 +26,12 @@ torch.cuda.empty_cache()
 ## HYPERPARAMETERS ##
 
 # inference hyperparams
-EXPERIMENT_DIR = '/home/jupyter/experiments/04'
-WEIGHTS = '2020-06-27 21h04m45s_covernet_weights after_epoch 3.pt'
+EXPERIMENT_DIR = '/home/jupyter/experiments/09-simclr-freeze'
+WEIGHTS = '2020-06-29 03h59m26s_covernet_weights after_epoch 5.pt'
 NUM_MODES = 2206
+TOP_K = 25
 N_STEPS = 12  # 12 = 6 seconds * 2 frames/seconds
-BACKBONE = 'resnet50'
+BACKBONE = 'simclr'
 FREEZE = True
 
 # data hyperparams
@@ -136,9 +137,9 @@ def get_predictions(key):
                     sample_token = sample_tokens[i]
 
                     trajectories_cpy = trajectories[np.argsort(logits)[::-1]]
-                    trajectories_cpy = trajectories_cpy[:25]
+                    trajectories_cpy = trajectories_cpy[:TOP_K]
                     logits = logits[np.argsort(logits)[::-1]]
-                    logits = logits[:25]
+                    logits = logits[:TOP_K]
 
                     all_predictions.append(Prediction(
                         instance_token,
