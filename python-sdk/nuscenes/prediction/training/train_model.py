@@ -28,7 +28,7 @@ RUN_TIME = datetime.datetime.now()
 def get_dataset(tokens, helper, args):
     if args.key == 'mtp':
         mtp_dataset = MTPDataset(tokens, helper)
-        return train_mtpdataset
+        return mtp_dataset
     elif args.key == 'covernet':
         covernet_dataset = CoverNetDataset(tokens, helper)
         return covernet_dataset
