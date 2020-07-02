@@ -22,16 +22,17 @@ np.random.seed(0)
 torch.manual_seed(0)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.cuda.empty_cache()
+print("Device:", device)
 
 ## HYPERPARAMETERS ##
 
 # inference hyperparams
-EXPERIMENT_DIR = '/home/jupyter/experiments/09-simclr-freeze'
-WEIGHTS = '2020-06-29 03h59m26s_covernet_weights after_epoch 5.pt'
-NUM_MODES = 2206
+EXPERIMENT_DIR = '/home/jupyter/experiments/25-mtp64-resnet50'
+WEIGHTS = '2020-07-02 03h04m27s_mtp_weights after_epoch 9.pt'
+NUM_MODES = 64
 TOP_K = 25
 N_STEPS = 12  # 12 = 6 seconds * 2 frames/seconds
-BACKBONE = 'simclr'
+BACKBONE = 'resnet50'
 FREEZE = True
 
 # data hyperparams
@@ -39,7 +40,7 @@ VERSION = 'v1.0-trainval'  # v1.0-mini, v1.0-trainval
 DATA_ROOT = '/home/jupyter/data/sets/nuscenes'  # wherever the data is stored
 SPLIT_NAME = 'val'
 
-KEY = 'covernet'
+KEY = 'mtp'
 
 ## PREPARE DATA ##
 
@@ -108,23 +109,25 @@ def get_predictions(key):
         
             #model outputs are x, y positions
             if key == 'mtp':
-                for i in range(model_pred.size(0)):
-                    pred = model_pred[i].cpu().detach().numpy()
+                for i in range(model_pred.shape[0]):
+                    pred = model_pred[i]
                     instance_token = instance_tokens[i]
                     sample_token = sample_tokens[i]
 
                     # collect the predicted trajectories and correspondings probabilities
                     trajectories = []
-                    probs = []
+                    logits = []
                     for j in range(NUM_MODES):
-                        trajectories.append(pred[j*(N_STEPS*2+1):(j+1)*(N_STEPS*2+1)-1].reshape(-1, 2))
-                        probs.append(pred[(j+1)*(N_STEPS*2+1)-1].item())
+                        traj_idx_start = j*(N_STEPS*2+1)
+                        traj_idx_end = (j+1)*(N_STEPS*2+1)-1
+                        trajectories.append(pred[traj_idx_start:traj_idx_end].reshape(-1, 2))
+                        logits.append(pred[traj_idx_end].item())
 
                     all_predictions.append(Prediction(
                         instance_token,
                         sample_token,
                         np.array(trajectories),
-                        F.softmax(torch.Tensor(probs), dim=0).numpy()).serialize())
+                        F.softmax(torch.Tensor(logits), dim=0).numpy()).serialize())
 
             #model outputs are logits corresponding to a pre-built fixed trajectory set
             elif key == 'covernet':
