@@ -50,7 +50,7 @@ def get_simclr_model():
     model.load_state_dict(sd['state_dict'])
     return model
 
-    
+
 def freeze_bottom_resnet(model):
     for param in model.conv1.parameters():
         param.requires_grad = False
@@ -107,7 +107,7 @@ def get_pretrained_model(model_key,
     """
 
     # Models from Cadene
-    if model_key in ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']:
+    if model_key in ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152', 'resnext101_32x4d']:
         model = pretrainedmodels.__dict__[model_key](
             num_classes=1000, pretrained='imagenet')  # original
         if freeze_bottom:
