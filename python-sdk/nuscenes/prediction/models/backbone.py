@@ -141,8 +141,11 @@ def get_pretrained_model(model_key,
         model = get_simclr_model()
         if freeze_bottom:
             freeze_bottom_resnet(model)
+    else:
+        model = None
 
-    print_frozen_params(model)
+    if model is not None:
+        print_frozen_params(model)
     return model
 
 
