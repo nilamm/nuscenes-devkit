@@ -53,7 +53,7 @@ def get_fixed_trajectory_set(args):
     return trajectories
 
 
-def get_predictions(args, dataloader):
+def get_predictions(args, dataloader, model):
 
     all_predictions = []
 
@@ -138,7 +138,7 @@ def main(args):
 
     model.eval()
 
-    predictions = get_predictions(args, dataloader)
+    predictions = get_predictions(args, dataloader, model)
     json.dump(predictions,
               open(os.path.join(args.experiment_dir, f'{args.key}_preds_{datetime.datetime.now():%Y-%m-%d %Hh%Mm%Ss}_{args.suffix}.json'), "w"))
 
