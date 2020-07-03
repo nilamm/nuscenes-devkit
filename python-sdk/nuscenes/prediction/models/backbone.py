@@ -129,6 +129,11 @@ def get_pretrained_model(model_key,
     if model_key in ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152', 'resnext101_32x4d']:
         model = pretrainedmodels.__dict__[model_key](
             num_classes=1000, pretrained='imagenet')  # original
+
+        # Change final pooling for resnext
+        if model_key == "resnext101_32x4d":
+            model.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+
         if freeze_bottom and model_key == 'resnext101_32x4d':
             freeze_resnext_supervised(model)
         elif freeze_bottom:
