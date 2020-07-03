@@ -87,6 +87,13 @@ def freeze_bottom_simclr(model):
         param.requires_grad = False
 
 
+def freeze_resnext_supervised(model):
+    for param in model.features[:6].parameters():
+        param.requires_grad = False
+    for param in model.features[6][:16].parameters():
+        param.requires_grad = False
+
+
 def freeze_bottom_noisy_student_efficientnet(model):
     """
     Freeze the bottom 5 of 7 blocks, and anything before the blocks
@@ -110,7 +117,10 @@ def get_pretrained_model(model_key,
     if model_key in ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152', 'resnext101_32x4d']:
         model = pretrainedmodels.__dict__[model_key](
             num_classes=1000, pretrained='imagenet')  # original
-        if freeze_bottom:
+        if freeze_bottom and model_key == 'resnext101_32x4d':
+            freeze_resnext_supervised(model)
+            return model
+        elif freeze_bottom:
             freeze_bottom_resnet(model)
         return model
     elif model_key in ['resnext101_32x4d_swsl', 'resnext101_32x4d_ssl', 'resnet50_swsl', 'resnet50_ssl']:
