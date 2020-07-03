@@ -140,7 +140,7 @@ def main(args):
 
     predictions = get_predictions(args, dataloader)
     json.dump(predictions,
-              open(os.path.join(args.experiment_dir, f'{args.key}_preds_{datetime.datetime.now():%Y-%m-%d %Hh%Mm%Ss}.json'), "w"))
+              open(os.path.join(args.experiment_dir, f'{args.key}_preds_{datetime.datetime.now():%Y-%m-%d %Hh%Mm%Ss}_{args.suffix}.json'), "w"))
 
 
 if __name__ == "__main__":
@@ -171,6 +171,7 @@ if __name__ == "__main__":
     parser.add_argument('--no_freeze_bottom', dest='freeze_bottom',
                         help='Allow all params of the backbone to be fine-tuned',
                         action='store_false')
+    parser.add_argument('--suffix', help="Optional suffix to output file name", default="")
     parser.set_defaults(freeze_bottom=True)
 
     # data arguments
