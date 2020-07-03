@@ -28,9 +28,9 @@ torch.cuda.empty_cache()
 #TO DO (sj3003): Can we move this to a common place, seems to be used in a couple of other places as well
 def get_model(args):
     backbone = Backbone(args.backbone, args.freeze_bottom)
-    if key == 'mtp':
+    if args.key == 'mtp':
         model = MTP(backbone, args.num_modes)
-    elif key == 'covernet':
+    elif args.key == 'covernet':
         model = CoverNet(backbone, args.num_modes)
 
     model = model.to(device)
