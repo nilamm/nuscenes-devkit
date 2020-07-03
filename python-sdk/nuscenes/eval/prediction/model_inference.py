@@ -177,3 +177,6 @@ if __name__ == "__main__":
     parser.add_argument('--version', help='nuScenes version number.', default='v1.0-trainval')
     parser.add_argument('--data_root', help='Directory storing NuScenes data.', default='/home/jupyter/data/sets/nuscenes')
     parser.add_argument('--split_name', help='Data split to run inference on.', default='val')
+
+    args = parser.parse_args()
+    main(args)
