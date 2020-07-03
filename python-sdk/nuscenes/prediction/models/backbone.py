@@ -88,10 +88,10 @@ def freeze_bottom_simclr(model):
 
 
 def freeze_resnext_supervised(model):
-    for param in model.features[:6].parameters():
+    for param in model.features[:7].parameters():
         param.requires_grad = False
-    for param in model.features[6][:16].parameters():
-        param.requires_grad = False
+    #for param in model.features[6][:20].parameters():
+    #    param.requires_grad = False
 
 
 def freeze_bottom_noisy_student_efficientnet(model):
