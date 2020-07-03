@@ -107,6 +107,18 @@ def freeze_bottom_noisy_student_efficientnet(model):
             param.requires_grad = False
 
 
+def print_frozen_params(model):
+    """For debugging, print the frozen parameters"""
+    frozen_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
+    total_params = sum(p.numel() for p in model.parameters())
+
+    frozen_weights = len([p for p in model.parameters() if not p.requires_grad])
+    total_weights = len([p for p in model.parameters()])
+
+    print(f"Froze {frozen_params/total_params:.2f} of params, "
+          f"{frozen_weights/total_weights:.2f} of weights.")
+
+
 def get_pretrained_model(model_key,
                          freeze_bottom=True):
     """
@@ -119,20 +131,19 @@ def get_pretrained_model(model_key,
             num_classes=1000, pretrained='imagenet')  # original
         if freeze_bottom and model_key == 'resnext101_32x4d':
             freeze_resnext_supervised(model)
-            return model
         elif freeze_bottom:
             freeze_bottom_resnet(model)
-        return model
     elif model_key in ['resnext101_32x4d_swsl', 'resnext101_32x4d_ssl', 'resnet50_swsl', 'resnet50_ssl']:
         model = load_ss_imagenet_models(model_key)
         if freeze_bottom:
             freeze_bottom_resnet(model)
-        return model
     elif model_key == 'simclr':
         model = get_simclr_model()
         if freeze_bottom:
             freeze_bottom_resnet(model)
-        return model
+
+    print_frozen_params(model)
+    return model
 
 
 def trim_network_at_index(network: nn.Module, index: int = -1) -> nn.Module:
