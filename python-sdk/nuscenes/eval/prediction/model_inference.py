@@ -76,23 +76,18 @@ def get_predictions(args, dataloader, model):
                     pred = model_pred[i]
                     instance_token = instance_tokens[i]
                     sample_token = sample_tokens[i]
-
-                    # collect the predicted trajectories and correspondings probabilities
-                    trajectories = []
-                    logits = []
-                    for j in range(args.num_modes):
-                        traj_idx_start = j*(args.n_steps*2+1)
-                        traj_idx_end = (j+1)*(args.n_steps*2+1)-1
-                        trajectories.append(pred[traj_idx_start:traj_idx_end].reshape(-1, 2))
-                        logits.append(pred[traj_idx_end].item())
-
-                    # TODO: may want to limit to top TOP_K, like with covernet
+                            
+                    logits = pred[-args.num_modes:]
+                    trajectories = pred[:-args.num_modes].reshape(args.num_modes, args.n_steps, 2)
+                    
+                    # only write the top K to the predictions file
+                    topk_idx = np.argsort(logits)[:args.top_k]
 
                     all_predictions.append(Prediction(
                         instance_token,
                         sample_token,
-                        np.array(trajectories),
-                        F.softmax(torch.Tensor(logits), dim=0).numpy()).serialize())
+                        trajectories[topk_idx],
+                        F.softmax(torch.Tensor(logits[topk_idx]), dim=0).numpy()).serialize())
 
             # model outputs are logits corresponding to a pre-built fixed trajectory set
             elif args.key == 'covernet':
@@ -127,7 +122,11 @@ def main(args):
     nusc = NuScenes(version=args.version, dataroot=args.data_root)
     helper = PredictHelper(nusc)
     data_tokens = get_prediction_challenge_split(args.split_name, dataroot=args.data_root)
-    dataset = CoverNetDataset(data_tokens, helper)
+
+    if args.key == "covernet":
+        dataset = CoverNetDataset(data_tokens, helper)
+    elif args.key == "mtp":
+        dataset = MTPDataset(data_tokens, helper)
     dataloader = DataLoader(dataset, batch_size=16, num_workers=0, shuffle=False)
     print(f"Loaded split {args.split_name}, length {len(dataset)}, in {len(dataloader)} batches.")
 
