@@ -227,7 +227,7 @@ def train_epochs(train_dataloader,
 def main(args):
     print("Args:")
     print(vars(args))
-    
+
     print("Device:")
     print(device)
 
@@ -287,7 +287,7 @@ if __name__ == "__main__":
                         default=1)
     parser.add_argument('--key', help='Key to identify model architecture. E.g. mtp, covernet')
     parser.add_argument('--backbone',
-                        help='Which backbone vision model to use. resnet18, resnet34, resnet50, resnet101, resnet152, resnext101_32x4d_ssl, resnext101_32x4d_swsl, simclr',
+                        help='Which backbone vision model to use. resnet18, resnet34, resnet50, resnet101, resnet152, resnext101_32x4d_ssl, resnext101_32x4d_swsl, simclr_resnet50_4x, simclr_resnet50_1x',
                         default='resnet50')
     parser.add_argument('--freeze_bottom', dest='freeze_bottom',
                         help='Freeze the bottom layers of the backbone network, allowing only the top layers to be fine-tuned',

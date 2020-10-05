@@ -41,13 +41,20 @@ def set_classification_layer_simclr(model, output_dim):
     return model
 
 
-def get_simclr_model():
+def get_simclr_model(resnet_base):
     from nuscenes.prediction.models.simclr_google import resnet_wider
-    model = resnet_wider.resnet50x4()
-    sd = torch.load(os.path.join(
-        os.path.dirname(resnet_wider.__file__),
-        'resnet50-4x.pth'), map_location='cpu')
-    model.load_state_dict(sd['state_dict'])
+    if resnet_base == 'resnet50_4x':
+        model = resnet_wider.resnet50x4()
+        sd = torch.load(os.path.join(
+            os.path.dirname(resnet_wider.__file__),
+            'resnet50-4x.pth'), map_location='cpu')
+        model.load_state_dict(sd['state_dict'])
+    elif resnet_base == 'resnet50_1x':
+        model = resnet_wider.resnet50x1()
+        sd = torch.load(os.path.join(
+            os.path.dirname(resnet_wider.__file__),
+            'resnet50-1x.pth'), map_location='cpu')
+        model.load_state_dict(sd['state_dict'])
     return model
 
 
@@ -142,8 +149,11 @@ def get_pretrained_model(model_key,
         model = load_ss_imagenet_models(model_key)
         if freeze_bottom:
             freeze_bottom_resnet(model)
-    elif model_key == 'simclr':
-        model = get_simclr_model()
+    elif 'simclr' in model_key:
+        if model_key == 'simclr_resnet50_4x':
+            model = get_simclr_model('resnet50_4x')
+        elif model_key == 'simclr_resnet50_1x':
+            model = get_simclr_model('resnet50_1x')
         if freeze_bottom:
             freeze_bottom_resnet(model)
     else:
@@ -175,7 +185,7 @@ class Backbone(nn.Module):
     """
     Outputs tensor after last convolution before the fully connected layer.
 
-    Allowed versions: resnet18, resnet34, resnet50, resnet101, resnet152, resnext101_32x4d_ssl, resnext101_32x4d_swsl, simclr.
+    Allowed versions: resnet18, resnet34, resnet50, resnet101, resnet152, resnext101_32x4d_ssl, resnext101_32x4d_swsl, simclr_resnet50_4x, simclr_resnet50_1x.
     """
 
     def __init__(self, version: str, freeze_bottom: bool=True):
